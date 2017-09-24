@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Hansha.Core.DesktopDuplication;
 using Q42.HueApi;
 using Q42.HueApi.ColorConverters;
 using Q42.HueApi.ColorConverters.Original;
@@ -41,6 +43,25 @@ namespace AmbiHue
             throw new Exception("Failed to register with the Hue bridge.");
         }
 
+        public static RGBColor GetColor(byte[] pixels)
+        {
+            long r = 0, g = 0, b = 0;
+            var n = pixels.Length / 4;
+
+            for (var i = 0; i < pixels.Length; i += 4)
+            {
+                r += pixels[i];
+                b += pixels[i + 1];
+                g += pixels[i + 2];
+            }
+
+            return new RGBColor(
+                (int) (r / n),
+                (int) (g / n),
+                (int) (b / n)
+            );
+        }
+
         public static async Task MainAsync()
         {
             // Initialize the client address.
@@ -52,8 +73,22 @@ namespace AmbiHue
             // Initialize the client.
             var client = await LoadClient(bridge);
             var command = new LightCommand();
-            command.SetColor(new RGBColor("FFFF00"));
-            await client.SendCommandAsync(command);
+            var screenProvider = new DesktopDuplicationScreenProvider();
+            var screen = screenProvider.GetScreen();
+            var fps = 1000 / 1;
+
+            while (true)
+            {
+                var startTime = DateTime.Now;
+                var frame = screen.GetFrame(int.MaxValue);
+                var color = GetColor(frame.NewPixels);
+
+                command.SetColor(color);
+                await client.SendCommandAsync(command);
+
+                var elapsedTime = DateTime.Now - startTime;
+                if (elapsedTime.Milliseconds < fps) await Task.Delay(fps - elapsedTime.Milliseconds);
+            }
         }
 
         public static void Main()

@@ -64,5 +64,19 @@
     <None Include="app.config" />
     <None Include="packages.config" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Hansha.Core.BitBlt\Hansha.Core.BitBlt.csproj">
+      <Project>{509e3bd8-4864-4b5c-b559-8d45430794b4}</Project>
+      <Name>Hansha.Core.BitBlt</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Hansha.Core.DesktopDuplication\Hansha.Core.DesktopDuplication.csproj">
+      <Project>{6892275f-202a-4638-b8e4-8b6ce1ea2d64}</Project>
+      <Name>Hansha.Core.DesktopDuplication</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Hansha.Core\Hansha.Core.csproj">
+      <Project>{cb37b695-0caf-4fb6-bcb4-881b18c3682f}</Project>
+      <Name>Hansha.Core</Name>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
