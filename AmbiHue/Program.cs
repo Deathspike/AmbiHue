@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -50,9 +49,9 @@ namespace AmbiHue
 
             for (var i = 0; i < pixels.Length; i += 4)
             {
-                r += pixels[i];
+                r += pixels[i + 2];
                 b += pixels[i + 1];
-                g += pixels[i + 2];
+                g += pixels[i];
             }
 
             return new RGBColor(
@@ -75,16 +74,28 @@ namespace AmbiHue
             var command = new LightCommand();
             var screenProvider = new DesktopDuplicationScreenProvider();
             var screen = screenProvider.GetScreen();
-            var fps = 1000 / 1;
+            var fps = 1000 / 60;
+
+            var lights = (await client.GetLightsAsync()).ToList();
+            var previousColor = "";
 
             while (true)
             {
                 var startTime = DateTime.Now;
                 var frame = screen.GetFrame(int.MaxValue);
                 var color = GetColor(frame.NewPixels);
+                var colorHex = color.ToHex();
 
-                command.SetColor(color);
-                await client.SendCommandAsync(command);
+                if (previousColor != colorHex)
+                {
+                    previousColor = colorHex;
+                    command.SetColor(color);
+
+                    foreach (var l in lights)
+                    {
+                        await client.SendCommandAsync(command, Enumerable.Repeat(l.Id, 1));
+                    }
+                }
 
                 var elapsedTime = DateTime.Now - startTime;
                 if (elapsedTime.Milliseconds < fps) await Task.Delay(fps - elapsedTime.Milliseconds);
