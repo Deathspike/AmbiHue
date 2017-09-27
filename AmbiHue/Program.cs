@@ -12,6 +12,25 @@ namespace AmbiHue
 {
     public class Program
     {
+        public static RGBColor GetMeanColor(byte[] pixels)
+        {
+            long r = 0, g = 0, b = 0;
+            var n = pixels.Length / 4;
+
+            for (var i = 0; i < pixels.Length; i += 4)
+            {
+                b += pixels[i];
+                g += pixels[i + 1];
+                r += pixels[i + 2];
+            }
+
+            return new RGBColor(
+                (int)(r / n),
+                (int)(g / n),
+                (int)(b / n)
+            );
+        }
+
         public static async Task<LocalHueClient> LoadClient(LocatedBridge bridge)
         {
             var client = new LocalHueClient(bridge.IpAddress);
@@ -42,63 +61,40 @@ namespace AmbiHue
             throw new Exception("Failed to register with the Hue bridge.");
         }
 
-        public static RGBColor GetColor(byte[] pixels)
-        {
-            long r = 0, g = 0, b = 0;
-            var n = pixels.Length / 4;
-
-            for (var i = 0; i < pixels.Length; i += 4)
-            {
-                r += pixels[i + 2];
-                b += pixels[i + 1];
-                g += pixels[i];
-            }
-
-            return new RGBColor(
-                (int) (r / n),
-                (int) (g / n),
-                (int) (b / n)
-            );
-        }
-
         public static async Task MainAsync()
         {
-            // Initialize the client address.
-            var locator = new HttpBridgeLocator();
-            var bridges = (await locator.LocateBridgesAsync(TimeSpan.FromDays(1))).ToList();
+            // Initialize the bridge.
+            var bridges = (await new HttpBridgeLocator().LocateBridgesAsync(TimeSpan.FromDays(1))).ToList();
             if (bridges.Count == 0) return;
             var bridge = bridges.First();
 
-            // Initialize the client.
+            // Initialize the client and screen.
             var client = await LoadClient(bridge);
-            var command = new LightCommand();
+            var clientCommand = new LightCommand();
             var screenProvider = new DesktopDuplicationScreenProvider();
             var screen = screenProvider.GetScreen();
-            var fps = 1000 / 60;
 
+            // Initialize the miscellaneous variables.
             var lights = (await client.GetLightsAsync()).ToList();
+            var minimumTimeBetweenFramesInMilliseconds = 1000 / 60;
             var previousColor = "";
 
             while (true)
             {
                 var startTime = DateTime.Now;
                 var frame = screen.GetFrame(int.MaxValue);
-                var color = GetColor(frame.NewPixels);
+                var color = GetMeanColor(frame.NewPixels);
                 var colorHex = color.ToHex();
 
                 if (previousColor != colorHex)
                 {
                     previousColor = colorHex;
-                    command.SetColor(color);
-
-                    foreach (var l in lights)
-                    {
-                        await client.SendCommandAsync(command, Enumerable.Repeat(l.Id, 1));
-                    }
+                    clientCommand.SetColor(color);
+                    foreach (var light in lights) await client.SendCommandAsync(clientCommand, Enumerable.Repeat(light.Id, 1));
                 }
 
                 var elapsedTime = DateTime.Now - startTime;
-                if (elapsedTime.Milliseconds < fps) await Task.Delay(fps - elapsedTime.Milliseconds);
+                if (elapsedTime.Milliseconds < minimumTimeBetweenFramesInMilliseconds) await Task.Delay(minimumTimeBetweenFramesInMilliseconds - elapsedTime.Milliseconds);
             }
         }
 
